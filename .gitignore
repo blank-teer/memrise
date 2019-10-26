@@ -1,0 +1,7 @@
+chromedriver.exe
+step_*.csv
+*.mp3
+.idea/
+.vscode/
+venv/
+__pycache__/
