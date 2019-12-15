@@ -27,9 +27,9 @@ init_csv = {
 }
 
 course = {
-    "edit_page_url": "https://www.memrise.com/course/5601523/my-terrible-course/edit",
+    "edit_page_url": "https://www.memrise.com/course/ID/NAME/edit",
     "words_per_level": 100,
-    "start_level": 24,
+    "start_level": 1,  # indexing starts from 1, not 0
     "audio": {
         "need": True,
         "get": lambda pos, word: os.path.abspath("data/init/audio/%s.%s.mp3" % (pos, word))
@@ -158,6 +158,10 @@ def scroll_to(element: SeleneElement):
     browser.execute_script("arguments[0].scrollIntoView(false)", element.get_actual_webelement())
 
 
+def diff(elem: SeleneElement, text_to_correspond_with: str) -> bool:
+    return elem.text != text_to_correspond_with
+
+
 def paste_in(element: SeleneElement, string: str):
     def input() -> SeleneElement:
         while True:
@@ -170,15 +174,15 @@ def paste_in(element: SeleneElement, string: str):
         return
 
     scroll_to(element)
-    
+
     inp = input()
-    
+
     if string == "":
         inp.clear()
     else:
         os.system("echo %s| clip" % string)
         inp.send_keys(Keys.CONTROL, 'a').send_keys(Keys.DELETE).send_keys(Keys.CONTROL, 'v')
-    
+
 
 def add_audio(item: SeleneElement, csv_pos: str, csv_word: str):
     item_audio_btns = item.ss(".cell>.btn-group>.btn")
@@ -240,7 +244,13 @@ def level_update(level: SeleneElement, csv_rows: list, start: int = 0, recursion
             item_syn4 = item_text_cols[5]
             item_syn5 = item_text_cols[6]
 
-            if item_tran.text != csv_tran:
+            if diff(item_tran, csv_tran) or\
+                    diff(item_tran, csv_tran) or\
+                    diff(item_syn1, csv_syn1) or\
+                    diff(item_syn2, csv_syn2) or\
+                    diff(item_syn3, csv_syn3) or\
+                    diff(item_syn4, csv_syn4) or\
+                    diff(item_syn5, csv_syn5):
                 print("updating...")
                 paste_in(item_tran, csv_tran)
                 paste_in(item_syn1, csv_syn1)
@@ -258,7 +268,7 @@ def level_update(level: SeleneElement, csv_rows: list, start: int = 0, recursion
             print("done")
         else:
             print("not exists, adding...")
-            last_item_word = lambda: items[-1].ss("td")[1].text
+            def last_item_word(): return items[-1].ss("td")[1].text
 
             add_btn = adding[0].s("i")
             area_word = adding[1]

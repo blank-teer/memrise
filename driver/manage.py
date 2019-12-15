@@ -6,24 +6,25 @@ chrome_driver = {
 }
 
 chrome_user_data = {
-    "location": "C:/Users/kao/AppData/Local/Temp/scoped_dir6572_926367835",
+    "location": "",
 }
 
 
 def configure():
-    """
+    r"""
     Prerequisites:
-    1) set 'executable_path' variable whose value should point to chrome driver (https://chromedriver.chromium.org/)
+    1) set chrome_driver's location whose value should point to chrome driver (https://chromedriver.chromium.org/)
     2) comment --user-data-dir and --profile-directory options adding
     3) run your python script and stop it when chrome has opened
-    4) find out newly created chrome user data directory, in Windows it's located in C:/Users/%USERNAME%/AppData/Local/Temp
+    4) find out newly created chrome user data directory
+       (in Windows its location look as C:\Users\%USERNAME%\AppData\Local\Temp\scoped_dir*)
     5) paste the path toward this directory as value of --user-data-dir option
     6) uncomment commented earlier options
 
     Now it will be used persistent chrome profile that retains any cache, cookies, etc. for the further runs.
     """
     o = webdriver.ChromeOptions()
-    o.add_argument(r"--user-data-dir=" + chrome_user_data["location"])
+    o.add_argument("--user-data-dir=" + chrome_user_data["location"])
     o.add_argument("--profile-directory=Default")
     o.add_argument("--start-maximized")
 
