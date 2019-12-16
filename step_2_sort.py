@@ -31,6 +31,11 @@ res_csv = {
         "trans_v7_usual_then_unusual_then_rare",
     ],
     "only_verified_common": False,
+    "reverse_trans_consider": {
+        "need": True,
+        "how_many_must_be_at_least": 4,
+        "bad_pos_start_from": -2 
+    }
 }
 
 
@@ -109,38 +114,41 @@ def get_common(common: list) -> list:
     tran = common[0]
     vrf = common[1]
 
-    if res_csv["only_verified_common"]:
-        if vrf:
-            outcome.append(tran)
-    else:
-        outcome.append(tran)
+    if res_csv["only_verified_common"] and not vrf:
+        return outcome
 
+    outcome.append(tran)
     return outcome
 
 
-def get_extra(freq_mark: str, extra: list) -> list:
+def get_extra(req_freq: str, word: str, extra: list) -> list:
     outcome = list()
-
+    
     for e in extra:
-        e_tran = e[0]
+        tran = e[0]
+        reverse_trans = e[1] 
         freq = e[2]
 
-        if freq == freq_mark:
-            outcome.append(e_tran)
-
+        if freq == req_freq:
+            if res_csv["reverse_trans_consider"]["need"]:
+                if len(reverse_trans) >= res_csv["reverse_trans_consider"]["how_many_must_be_at_least"]: 
+                    if word in reverse_trans[res_csv["reverse_trans_consider"]["bad_pos_start_from"]:len(reverse_trans)]:
+                        continue
+            outcome.append(tran)
+    
     return outcome
 
 
-def get_extra_usual(extra: list) -> list:
-    return get_extra("Обычный перевод", extra)
+def get_extra_usual(word: str, extra: list) -> list:
+    return get_extra("Обычный перевод", word, extra)
 
 
-def get_extra_unusual(extra: list) -> list:
-    return get_extra("Необычный перевод", extra)
+def get_extra_unusual(word: str, extra: list) -> list:
+    return get_extra("Необычный перевод", word, extra)
 
 
-def get_extra_rare(extra: list) -> list:
-    return get_extra("Редкий перевод", extra)
+def get_extra_rare(word: str, extra: list) -> list:
+    return get_extra("Редкий перевод", word, extra)
 
 
 def v1_common(common: list) -> list:
@@ -148,52 +156,52 @@ def v1_common(common: list) -> list:
     return prettify(out_common)
 
 
-def v2_common_then_usual(common: list, extra: list) -> list:
+def v2_common_then_usual(word: str, common: list, extra: list) -> list:
     out_common = get_common(common)
-    out_usual = get_extra_usual(extra)
+    out_usual = get_extra_usual(word, extra)
 
     out = out_common + out_usual
     return prettify(out)
 
 
-def v3_common_then_usual_then_unusual(common: list, extra: list) -> list:
+def v3_common_then_usual_then_unusual(word: str, common: list, extra: list) -> list:
     out_common = get_common(common)
-    out_usual = get_extra_usual(extra)
-    out_unusual = get_extra_unusual(extra)
+    out_usual = get_extra_usual(word, extra)
+    out_unusual = get_extra_unusual(word, extra)
 
     out = out_common + out_usual + out_unusual
     return prettify(out)
 
 
-def v4_common_then_usual_then_unusual_then_rare(common: list, extra: list) -> list:
+def v4_common_then_usual_then_unusual_then_rare(word: str, common: list, extra: list) -> list:
     out_common = get_common(common)
-    out_usual = get_extra_usual(extra)
-    out_unusual = get_extra_unusual(extra)
-    out_rare = get_extra_rare(extra)
+    out_usual = get_extra_usual(word, extra)
+    out_unusual = get_extra_unusual(word, extra)
+    out_rare = get_extra_rare(word, extra)
 
     out = out_common + out_usual + out_unusual + out_rare
     return prettify(out)
 
 
-def v5_usual(extra: list) -> list:
-    out_usual = get_extra_usual(extra)
+def v5_usual(word: str, extra: list) -> list:
+    out_usual = get_extra_usual(word, extra)
 
     out = out_usual
     return prettify(out)
 
 
-def v6_usual_then_unusual(extra: list) -> list:
-    out_usual = get_extra_usual(extra)
-    out_unusual = get_extra_unusual(extra)
+def v6_usual_then_unusual(word: str, extra: list) -> list:
+    out_usual = get_extra_usual(word, extra)
+    out_unusual = get_extra_unusual(word, extra)
 
     out = out_usual + out_unusual
     return prettify(out)
 
 
-def v7_usual_then_unusual_then_rare(extra: list) -> list:
-    out_usual = get_extra_usual(extra)
-    out_unusual = get_extra_unusual(extra)
-    out_rare = get_extra_rare(extra)
+def v7_usual_then_unusual_then_rare(word: str, extra: list) -> list:
+    out_usual = get_extra_usual(word, extra)
+    out_unusual = get_extra_unusual(word, extra)
+    out_rare = get_extra_rare(word, extra)
 
     out = out_usual + out_unusual + out_rare
     return prettify(out)
@@ -213,12 +221,12 @@ def sort():
         extra_trans = conv.to_list(csv_row[3])
 
         v1 = v1_common(common_tran)
-        v2 = v2_common_then_usual(common_tran, extra_trans)
-        v3 = v3_common_then_usual_then_unusual(common_tran, extra_trans)
-        v4 = v4_common_then_usual_then_unusual_then_rare(common_tran, extra_trans)
-        v5 = v5_usual(extra_trans)
-        v6 = v6_usual_then_unusual(extra_trans)
-        v7 = v7_usual_then_unusual_then_rare(extra_trans)
+        v2 = v2_common_then_usual(word, common_tran, extra_trans)
+        v3 = v3_common_then_usual_then_unusual(word, common_tran, extra_trans)
+        v4 = v4_common_then_usual_then_unusual_then_rare(word, common_tran, extra_trans)
+        v5 = v5_usual(word, extra_trans)
+        v6 = v6_usual_then_unusual(word, extra_trans)
+        v7 = v7_usual_then_unusual_then_rare(word, extra_trans)
 
         csv_row_processed = [
             pos,

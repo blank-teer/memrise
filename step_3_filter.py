@@ -28,8 +28,8 @@ res_csv = {
         "word",
         "trans"
     ],
-    "min_trans": 3,
-    "max_trans": 6,
+    "min_trans": 2,
+    "max_trans": 4,
     "take_more_trans_if_lack": True
 }
 
