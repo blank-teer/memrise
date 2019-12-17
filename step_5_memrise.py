@@ -6,7 +6,7 @@ from selene.elements import *
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
-from driver import manage
+from browser import manage
 from generic import io, conv
 
 init_csv = {

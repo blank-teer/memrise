@@ -1,7 +1,11 @@
-chromedriver.exe
-step_*.csv
+*.exe
 *.mp3
+step_*.csv
+
 .idea/
 .vscode/
+
 venv/
 __pycache__/
+
+chromeprofile/

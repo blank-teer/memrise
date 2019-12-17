@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 from selene.api import *
 from selenium.common.exceptions import StaleElementReferenceException
 
-from driver import manage
+from browser import manage
 from generic import io
 
 translator = {
