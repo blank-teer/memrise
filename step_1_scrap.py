@@ -83,7 +83,7 @@ def write_csv_header():
         write_csv(res_csv["header"])
 
 
-def does_it_contain_bad_symbols(string: str) -> bool:
+def does_contain_bad_symbols(string: str) -> bool:
     """
     Check if the passed string contains symbols
     that caused an untidy look of the row inserted into csv file.
@@ -94,57 +94,41 @@ def does_it_contain_bad_symbols(string: str) -> bool:
     return False
 
 
-def set_languages():
-    browser.element(".tlid-open-source-language-list").click()
-    browser.all(".language_list_item_wrapper-en").filtered_by(be.visible).first().click()
-
-    browser.element(".tlid-open-target-language-list").click()
-    browser.all(".language_list_item_wrapper-ru").filtered_by(be.visible).first().click()
-
-
-def validate(word: str) -> bool:
-    """
-    Wait for page being updated due to newly pasted word.
-
-    If page word is capitalized, or in upper case, or contains non-alphabetic character,
-    then we have mismatch and timeout as result, but we handle timeout by recursive call
-    in which we equate page word and csv word to make sure they are actually same.
-    Either of we again have a mismatch or table of extra translations is hidden,
-    then we scrap only common translation of the word and jump to the next word.
-
-    If it returns False, then we should skip extra translations scrapping
-    because of we do not guarantee that presented translations are related to the pasted word.
-    """
-    pattern = re.compile(r'\W')
-
-    def deep_compare(txt1: str, txt2: str) -> bool:
-        if pattern.sub('', txt1).lower() == pattern.sub('', txt2).lower():
-            return True
+def do_and_ensure(do_func, ensure_func, ensure_inbetween_delay=0.0, recursion_max_depth=0) -> bool:
+    if recursion_max_depth > 3:
         return False
 
-    tries = 10
-    delay = 0.2
+    do_func()
+
+    tries = 15
+    delay = ensure_inbetween_delay
     while tries > 0:
-        containers = browser.all(".gt-cd-tl")
-        container_texts = ["варианты перевода", "Translations of"]
-
-        try:
-            for cont in containers:
-
-                if any(text in cont.get_attribute("textContent") for text in container_texts):
-                    page_word = cont.element(".gt-card-ttl-txt").get_attribute("textContent")
-
-                    if deep_compare(page_word, word):
-                        trans_table = browser.element(".gt-cd.gt-cd-mbd.gt-cd-baf")
-                        return trans_table.is_displayed()
-
-        except StaleElementReferenceException:
-            continue
-
+        if ensure_func():
+            return True
         tries -= 1
         time.sleep(delay)
 
-    return False
+    do_and_ensure(do_func, ensure_func, ensure_inbetween_delay, recursion_max_depth + 1)
+
+
+def set_languages():
+    # source language
+    lang_box = browser.element("/html/body/c-wiz/div/div[2]/c-wiz/div[2]/c-wiz/div[3]/c-wiz/div[1]/div/div[3]/div/div[3]")
+
+    do_and_ensure(
+        lambda: browser.element("/html/body/c-wiz/div/div[2]/c-wiz/div[2]/c-wiz/div[1]/div[1]/c-wiz/div[2]/button").click(),
+        lambda: lang_box.matching(be.visible))
+
+    lang_box.all("div").element_by(have.attribute("data-language-code", "en")).click()
+
+    # target language
+    lang_box = browser.element("/html/body/c-wiz/div/div[2]/c-wiz/div[2]/c-wiz/div[3]/c-wiz/div[2]/div/div[3]/div/div[2]")
+
+    do_and_ensure(
+        lambda: browser.element("/html/body/c-wiz/div/div[2]/c-wiz/div[2]/c-wiz/div[1]/div[1]/c-wiz/div[5]/button").click(),
+        lambda: lang_box.matching(be.visible))
+
+    lang_box.all("div").element_by(have.attribute("data-language-code", "ru")).click()
 
 
 def audio():
@@ -152,9 +136,7 @@ def audio():
     Playback audio of the word pronunciation for caching it.
     """
     time.sleep(1)
-    playback_button = browser.element(by.xpath(
-        "/html/body/div[2]/div[1]/div[2]/div[1]/div[1]/div[1]/div[2]/div/div/div[5]/div[3]/div[2]"
-    ))
+    playback_button = browser.element(by.xpath("/html/body/div[2]/div[1]/div[2]/div[1]/div[1]/div[1]/div[2]/div/div/div[5]/div[3]/div[2]"))
     playback_button.click()
 
 
@@ -163,9 +145,7 @@ def audio_assure_finished():
     If it seems we will have passed to the next word very quickly,
     wait till the audio end for make sure it is cached.
     """
-    playback_button = browser.element(by.xpath(
-        "/html/body/div[2]/div[1]/div[2]/div[1]/div[1]/div[1]/div[2]/div/div/div[5]/div[3]/div[2]"
-    ))
+    playback_button = browser.element(by.xpath("/html/body/div[2]/div[1]/div[2]/div[1]/div[1]/div[1]/div[2]/div/div/div[5]/div[3]/div[2]"))
     playback_button.assure(have.attribute("aria-pressed", "false"))
     time.sleep(1)
 
@@ -176,13 +156,13 @@ def common() -> list:
     Returned value is the list of: common translation + verify mark.
     """
     # retrieve the common translation to the right from input area
-    tran = browser.element(".tlid-translation.translation").text
+    tran = browser.element("/html/body/c-wiz/div/div[2]/c-wiz/div[2]/c-wiz/div[1]/div[2]/div[3]/c-wiz[2]/div[6]/div/div[1]/span[1]/span/span").get(query.text)
 
     # retrieve the common translation to the right from input area
-    verified = browser.element(".trans-verified-button").is_displayed()
+    verified = browser.element("/html/body/c-wiz/div/div[2]/c-wiz/div[2]/c-wiz/div[1]/div[2]/div[3]/c-wiz[2]/div[6]/div/div[1]/div").matching(be.existing)
 
     # validate and save the pair of common translation and verify mark
-    if tran != "" and not does_it_contain_bad_symbols(tran):
+    if tran != "" and not does_contain_bad_symbols(tran):
         return [tran, verified]
 
     return list()
@@ -193,46 +173,69 @@ def extra() -> list:
     Retrieve extra translations of the pasted word.
     Returned value is the list of lists of: extra translation + reverse translations + frequency rate.
     """
-    trans = list()
+    extras = list()
 
     # set up beautiful soup html parser
-    bs = BeautifulSoup(browser.driver().page_source, 'html.parser')
+    bs = BeautifulSoup(browser.driver().page_source, "html.parser")
 
     # retrieve extra translations from the table (tr>td)
-    table = bs.find('table', 'gt-baf-table')
+    table = bs.find("table")
+    if table is None:
+        return extras
 
-    rows = table.find('tbody').find_all('tr')
-    rows = filter(lambda x: True if x.find('div', 'gt-card-collapsed') is None else False, rows)
+    tran_row_class = table.find("tbody").find("th", scope="row")["class"]
+    syns_row_class = table.find("tbody").find("td")["class"]
+    freq_row_class = table.find("tbody").find_all("td")[1]["class"]
+
+    tran_rows = table.select("." + ".".join(tran_row_class))
+    syns_rows = table.select("." + ".".join(syns_row_class))
+    freq_rows = table.select("." + ".".join(freq_row_class))
+
+    # rows = filter(lambda x: True if x.find("div", "gt-card-collapsed") is None else False, rows)
 
     # start iterating onto rows of the table
-    for row in rows:
-        columns = row.find_all("td")
-
-        # skip if the row contains parts of speech
-        if len(columns) == 1:
-            continue
+    for i in range(len(tran_rows)):
 
         # process the current translation
-        tran = columns[0].get_text()
-
-        # skip if the translation contains bad symbols
-        if does_it_contain_bad_symbols(tran):
+        translation = tran_rows[i].get_text(strip=True)
+        if does_contain_bad_symbols(translation):
             continue
 
-        # process reverse translations
-        # (another english words that also might be translated by the current translation)
-        reverse_trans = columns[1].get_text().split(", ")
-        reverse_trans = filter(lambda x: True if not does_it_contain_bad_symbols(x) else False, reverse_trans)
-        reverse_trans = [t for t in reverse_trans]
+        # process synonyms
+        synonyms_ = syns_rows[i].get_text(strip=True).split(", ")
+        synonyms_ = filter(lambda x: True if not does_contain_bad_symbols(x) else False, synonyms_)
+        synonyms_ = [syn for syn in synonyms_]
 
         # process the frequency rate of the current translation
-        # it may be regular (the most frequent), unusual and rare (the least frequent)
-        frequency_rate = columns[2].find('div', 'gt-baf-entry-score')['title']
+        frequency = freq_rows[i].get_text(strip=True)
 
-        # summarize information about the current translation
-        trans.append([tran, reverse_trans, frequency_rate])
+        # summarize contents
+        extras.append([translation, synonyms_, frequency])
 
-    return trans
+    return extras
+
+
+def enter(word: str):
+    pattern = re.compile(r"\W")
+
+    # indicate the input area for pasting csv words
+    input_area = browser.element("/html/body/c-wiz/div/div[2]/c-wiz/div[2]/c-wiz/div[1]/div[2]/div[3]/c-wiz[1]/span/span/div/textarea")
+
+    def do():
+        # clean up
+        input_area.clear()
+
+        # paste the next word and press enter in order to close the popup
+        input_area.send_keys(word).press_enter()
+
+    def ensure():
+        page_word = browser.element("/html/body/c-wiz/div/div[2]/c-wiz/div[2]/c-wiz/div[2]/c-wiz/section/h2/span").get(query.attribute("innerText"))
+
+        # if csv word and page word are the same, then google translator's ajax has worked out properly,
+        # so we can scrap the content.
+        return pattern.sub("", page_word).lower() == pattern.sub("", word).lower()
+
+    do_and_ensure(do, ensure, 0.2)
 
 
 def scrap():
@@ -240,14 +243,10 @@ def scrap():
     init_csv_content = read_csv()
 
     # temporary collector of the scrapped data.
-    # it makes lower hard disk load due to the deferred push to resulting csv only 10 rows per one time
-    res_csv_content = list()
+    intermediate_result = list()
 
     # configure and open a browser
     manage.run_configured(translator["url"])
-
-    # indicate the input area for pasting csv words
-    input_area = browser.element(by.id("source"))
 
     # set proper languages
     set_languages()
@@ -263,33 +262,24 @@ def scrap():
 
         word = csv_row[1]
         print("wrd:", word)
+        print()
 
-        # clean up
-        input_area.clear()
+        enter(word)
 
-        # paste the next word and press enter in order to close the popup
-        input_area.send_keys(word).press_enter()
-
-        full_scrap = validate(word)
-
-        res_csv_content.append([
+        intermediate_result.append([
             pos,
             word,
             common(),
-            extra() if full_scrap else list()
+            extra()
         ])
 
-        # write resulting content into resulting csv file
+        # write resulting content into resulting csv file.
+        # it makes lower hard disk pressure by the batch insert to the resulting csv.
         if pos % 10 == 0:
-            write_csv(res_csv_content)
-            res_csv_content.clear()
+            write_csv(intermediate_result)
+            intermediate_result.clear()
 
-        if full_scrap:
-            print("sts:", "full")
-        else:
-            print("sts:", "short")
-        print()
-
+        # reboot the browser from time to time to free RAM and prevent scrapping speed degradation.
         if pos % 100 == 0:
             init_csv["read_from"] = pos + 1
             browser.close()

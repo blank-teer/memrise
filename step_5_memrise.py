@@ -27,11 +27,11 @@ init_csv = {
 }
 
 course = {
-    "edit_page_url": "https://www.memrise.com/course/ID/NAME/edit",
+    "edit_page_url": "https://www.memrise.com/course/5601523/my-terrible-course/edit",
     "words_per_level": 100,
     "start_level": 1,  # indexing starts from 1, not 0
     "audio": {
-        "need": True,
+        "need": False,
         "get": lambda pos, word: os.path.abspath("data/init/audio/%s.%s.mp3" % (pos, word))
     },
     "header": [
@@ -98,50 +98,49 @@ def read_csv() -> list:
     return rows
 
 
-def slice_evenly(l: list, per: int):
-    for i in range(0, len(l), per):
-        yield l[i:i + per]
+def slice_evenly(ls: list, per: int):
+    for i in range(0, len(ls), per):
+        yield ls[i:i + per]
 
 
 def collapse(level: SeleneElement):
-    if "collapsed" in level.get_attribute("class"):
+    if "collapsed" in level.get(query.attribute("class")):
         # print("level %s: already collapsed" % level.get_attribute("id"))
         return
 
-    show_hide_btn = level.s(".show-hide")
+    show_hide_btn = level.element(".show-hide")
     scroll_to(show_hide_btn)
 
-    if not show_hide_btn.is_displayed():
-        print("level %s: no show/hide button" % level.get_attribute("id"))
+    if not show_hide_btn.matching(be.visible):
+        print("level %s: no show/hide button" % level.get(query.attribute("id")))
         return
 
     show_hide_btn.click()
 
 
 def expand(level: SeleneElement):
-    if "collapsed" not in level.get_attribute("class"):
+    if "collapsed" not in level.get(query.attribute("class")):
         # print("level %s: already expanded" % level.get_attribute("id"))
         return
 
-    show_hide_btn = level.s(".show-hide")
+    show_hide_btn = level.element(".show-hide")
     scroll_to(show_hide_btn)
 
-    if not show_hide_btn.is_displayed():
-        print("level %s: no show/hide button" % level.get_attribute("id"))
+    if not show_hide_btn.matching(be.visible):
+        print("level %s: no show/hide button" % level.get(query.attribute("id")))
         return
 
     show_hide_btn.click()
 
 
 def validate_course_header() -> bool:
-    levels = ss("#levels>.level")
-    level = levels.first()
+    levels = browser.all("#levels>.level")
+    if len(levels) == 0:
+        return False
 
-    if levels.size() > 1:
-        expand(level)
-
-    level_container = level.s(".table-container")
-    level_header = level_container.ss("table>thead>tr>th").filtered_by(have.not_(have.attribute("textContent", "")))
+    expand(levels[0])
+    level_container = levels[0].element(".table-container")
+    level_header = level_container.all("table>thead>tr>th").filtered_by(not_(have.attribute("textContent", "")))
 
     actual = [c.text.strip() for c in level_header]
     expected = course["header"]
@@ -159,18 +158,18 @@ def scroll_to(element: SeleneElement):
 
 
 def diff(elem: SeleneElement, text_to_correspond_with: str) -> bool:
-    return elem.text != text_to_correspond_with
+    return elem.get(query.text) != text_to_correspond_with
 
 
 def paste_in(element: SeleneElement, string: str):
     def input() -> SeleneElement:
         while True:
             element.click()
-            inputs = element.ss("input")
-            if inputs.size() > 0:
+            inputs = element.all("input")
+            if len(inputs) > 0:
                 return inputs.first()
 
-    if element.text == string:
+    if element.get(query.text) == string:
         return
 
     scroll_to(element)
@@ -181,11 +180,11 @@ def paste_in(element: SeleneElement, string: str):
         inp.clear()
     else:
         os.system("echo %s| clip" % string)
-        inp.send_keys(Keys.CONTROL, 'a').send_keys(Keys.DELETE).send_keys(Keys.CONTROL, 'v')
+        inp.press(Keys.CONTROL, 'a').press(Keys.DELETE).press(Keys.CONTROL, 'v')
 
 
 def add_audio(item: SeleneElement, csv_pos: str, csv_word: str):
-    item_audio_btns = item.ss(".cell>.btn-group>.btn")
+    item_audio_btns = item.all(".cell>.btn-group>.btn")
     item_upload_btn = item_audio_btns[0]
     item_record_btn = item_audio_btns[1]
     item_dropdown_btn = item_audio_btns[2]
@@ -199,7 +198,7 @@ def add_audio(item: SeleneElement, csv_pos: str, csv_word: str):
             print("fail: file doesn't exist:", audio_location)
             return
 
-        item_upload_btn.s("input").get_actual_webelement().send_keys(audio_location)
+        item_upload_btn.element("input").get_actual_webelement().send_keys(audio_location)
         while True:
             try:
                 t = item_dropdown_btn.text
@@ -211,9 +210,9 @@ def add_audio(item: SeleneElement, csv_pos: str, csv_word: str):
 
 
 def level_update(level: SeleneElement, csv_rows: list, start: int = 0, recursion: bool = False):
-    container = level.s(".table-container")
-    items = container.ss(".level-things>.things>.thing")
-    adding = container.ss(".level-things>.adding>tr")[-1].ss("td")
+    container = level.element(".table-container")
+    items = container.all(".level-things>.things>.thing")
+    adding = container.all(".level-things>.adding>tr")[-1].all("td")
 
     enumerated = [e for e in enumerate(csv_rows)][start:]
     for csv_row in enumerated:
@@ -233,8 +232,8 @@ def level_update(level: SeleneElement, csv_rows: list, start: int = 0, recursion
         if items.size() > row_numb:
             print("exists, check if it need to be updated...")
             item = items[row_numb]
-            item_cols = item.ss(".cell>.wrapper")
-            item_text_cols = item.ss(".cell>.wrapper")
+            item_cols = item.all(".cell>.wrapper")
+            item_text_cols = item.all(".cell>.wrapper")
 
             item_word = item_text_cols[0]
             item_tran = item_text_cols[1]
@@ -244,12 +243,12 @@ def level_update(level: SeleneElement, csv_rows: list, start: int = 0, recursion
             item_syn4 = item_text_cols[5]
             item_syn5 = item_text_cols[6]
 
-            if diff(item_tran, csv_tran) or\
-                    diff(item_tran, csv_tran) or\
-                    diff(item_syn1, csv_syn1) or\
-                    diff(item_syn2, csv_syn2) or\
-                    diff(item_syn3, csv_syn3) or\
-                    diff(item_syn4, csv_syn4) or\
+            if diff(item_tran, csv_tran) or \
+                    diff(item_tran, csv_tran) or \
+                    diff(item_syn1, csv_syn1) or \
+                    diff(item_syn2, csv_syn2) or \
+                    diff(item_syn3, csv_syn3) or \
+                    diff(item_syn4, csv_syn4) or \
                     diff(item_syn5, csv_syn5):
                 print("updating...")
                 paste_in(item_tran, csv_tran)
@@ -268,9 +267,11 @@ def level_update(level: SeleneElement, csv_rows: list, start: int = 0, recursion
             print("done")
         else:
             print("not exists, adding...")
-            def last_item_word(): return items[-1].ss("td")[1].text
 
-            add_btn = adding[0].s("i")
+            def last_item_word():
+                return items[-1].all("td")[1].text
+
+            add_btn = adding[0].element("i")
             area_word = adding[1]
 
             pasted = False
@@ -312,15 +313,15 @@ def level_update(level: SeleneElement, csv_rows: list, start: int = 0, recursion
 
 def level_create():
     try:
-        btn = s(".btn-group.pull-left")
+        btn = browser.element(".btn-group.pull-left")
         scroll_to(btn)
         btn.click()
     except (TimeoutException, NoSuchElementException):
-        s(".pull-left").click()
+        browser.element(".pull-left").click()
         time.sleep(3)
-        s(".btn-primary").click()
+        browser.element(".btn-primary").click()
     else:
-        btn.ss("ul>li").first().click()
+        btn.all("ul>li").first().click()
 
 
 def memrise():
@@ -343,7 +344,7 @@ def memrise():
         level_updated = False
 
         while not level_updated:
-            levels = ss("#levels>.level")
+            levels = browser.all("#levels>.level")
 
             print("set:", set_numb)
             print("levels:", levels.size())

@@ -140,15 +140,15 @@ def get_extra(req_freq: str, word: str, extra: list) -> list:
 
 
 def get_extra_usual(word: str, extra: list) -> list:
-    return get_extra("Обычный перевод", word, extra)
+    return get_extra("Распространенный вариант", word, extra)
 
 
 def get_extra_unusual(word: str, extra: list) -> list:
-    return get_extra("Необычный перевод", word, extra)
+    return get_extra("Менее распространенный вариант", word, extra)
 
 
 def get_extra_rare(word: str, extra: list) -> list:
-    return get_extra("Редкий перевод", word, extra)
+    return get_extra("Редко используемый вариант", word, extra)
 
 
 def v1_common(common: list) -> list:
